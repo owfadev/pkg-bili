@@ -58,3 +58,9 @@ The pet lives in the bili domain under a standing-consent contract (install = co
 - Diary pages and persona are instance data (personal watch history) — never relayed outside this repo
 - The cron task page (`wiki/cron/`) owns the wake registration; this skill owns what a wake does
 - High-value conclusions about videos/UPs graduate to bili's archives (`wiki/bili/video/`, `up/`) per the bili member's emergence discipline — the pet's diary is experience, the archives are knowledge
+
+> This region is a wiki_plugin_kernel projection: consumes pulls merged with usage_routes source-side routing; disclosure order = owner first, routed blocks in the middle, pulled blocks last (rebuilt by inject / all); handwritten content does not belong here — to change the write-side contract, edit PLUGIN.yaml.
+
+<!-- cmd-inject:start -->
+<!-- cmd-inject:end -->
+

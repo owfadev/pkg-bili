@@ -37,6 +37,7 @@ Output is always single-line JSON; timestamps are `YYYY-MM-DD HH:MM` local timez
 - When buvid3 is absent it is fetched on demand via `/x/frontend/finger/spi` (risk-control baseline)
 - Write-operation forms auto-inject csrf (= bili_jct)
 - The endpoint table is centralized in `bilicli/config.py` — when bilibili revamps the site, change it there first; uncovered surfaces go through raw
+- The `summary` payload shape is unstable (measured 2026-10-25, BV1wvJB6aEp5): `data.model_result` is now an **object** `{result_type, summary, outline[], subtitle[]}` and used to be a plain string; the outline can sit under `data.outline` or inside `model_result`. The reader normalizes both shapes — don't assume one when adding fields
 
 ## Known pitfalls (measured feedback)
 

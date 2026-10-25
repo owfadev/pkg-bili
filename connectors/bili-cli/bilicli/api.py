@@ -192,11 +192,17 @@ class BiliAPI:
         r = self.s.get(API_BASE + ENDPOINTS["conclusion"][0], params=params, timeout=15,
                        headers={"Referer": f"https://www.bilibili.com/video/{bvid}/"})
         data = (r.json().get("data") or {})
-        outline = data.get("outline") or []
+        # measured 2026-10-25 (BV1wvJB6aEp5): model_result is an OBJECT now —
+        # {result_type, summary, outline[], subtitle[]} — while older payloads carried a plain string,
+        # and the outline can live either under data.outline or inside model_result. Normalize both
+        # shapes before reading: slicing a dict as a string raised KeyError here.
+        mr = data.get("model_result")
+        text = mr if isinstance(mr, str) else ((mr or {}).get("summary") or "")
+        outline = data.get("outline") or (mr.get("outline") if isinstance(mr, dict) else None) or []
         return {
             "bvid": bvid,
-            "has_summary": data.get("code") == 0 and bool(data.get("model_result") or outline),
-            "model_result": (data.get("model_result") or "")[:4000],
+            "has_summary": data.get("code", 0) == 0 and bool(text or outline),
+            "model_result": text[:4000],
             "outline": [{"title": o.get("title"),
                          "bullets": [b.get("content") for b in (o.get("part_outline") or [])][:8]}
                         for o in outline][:10],

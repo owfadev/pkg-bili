@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from . import auth
+from . import auth, traffic
 from .config import API_BASE, APP_URL, ENDPOINTS, USER_AGENT
 
 # WBI mixin key rearrangement table (stable community-published values, in use since 2023;
@@ -62,8 +62,11 @@ class BiliAPI:
 
     def _wbi_mixin_key(self) -> str:
         if self._wbi_key is None:
-            nav = self.s.get(API_BASE + ENDPOINTS["nav"][0], timeout=15).json()
-            wbi = nav.get("data", {}).get("wbi_img") or {}
+            try:  # via the guard: nav carries the rotating WBI keys, cached 10 min
+                nav = traffic.guarded_get(self.s, API_BASE + ENDPOINTS["nav"][0], timeout=15)
+            except traffic.GuardBlocked as e:
+                raise SystemExit(str(e))
+            wbi = (nav.get("data") or {}).get("wbi_img") or {}
             img = wbi.get("img_url", "").rsplit("/", 1)[-1].split(".")[0]
             sub = wbi.get("sub_url", "").rsplit("/", 1)[-1].split(".")[0]
             raw = img + sub
@@ -90,15 +93,20 @@ class BiliAPI:
             if self.csrf:
                 form.setdefault("csrf", self.csrf)
                 form.setdefault("csrf_token", self.csrf)
+            traffic.throttle()
             r = self.s.post(API_BASE + path, data=form, timeout=15)
+            try:
+                body = r.json()
+            except ValueError:
+                raise SystemExit(f"non-JSON response (HTTP {r.status_code}) — the endpoint may have changed; verify via raw passthrough")
         else:
             if need_wbi:
                 params = self._sign(params)
-            r = self.s.get(API_BASE + path, params=params, timeout=15, headers=headers)
-        try:
-            body = r.json()
-        except ValueError:
-            raise SystemExit(f"non-JSON response (HTTP {r.status_code}) — the endpoint may have changed; verify via raw passthrough")
+            try:  # GET lifecycle under the guard: cache -> throttle -> breaker classification
+                body = traffic.guarded_get(self.s, API_BASE + path, params=params,
+                                           headers=headers, timeout=15)
+            except traffic.GuardBlocked as e:
+                raise SystemExit(str(e))
         if body.get("code") != 0:
             raise SystemExit(f"API error code={body.get('code')}: {body.get('message')}")
         return body.get("data")
@@ -223,6 +231,30 @@ class BiliAPI:
         }, headers=self._space_headers(mid))
         vlist = ((data or {}).get("list") or {}).get("vlist") or []
         return vlist[:limit]
+
+    # -- reads: comments / danmaku feed / stream URL (debrief pipeline) --------------
+
+    def comments(self, bvid: str, ps: int = 20, pn: int = 1, sort: str = "hot"):
+        """Video comments (anonymous-readable; logged-in floors are fuller). oid is aid —
+        resolved via view (which the guard caches 24h, so debrief's repeated views are free).
+        Returns the raw reply page data; the cli layer shapes for display."""
+        aid = self._bvid_to_aid(bvid)
+        return self._call("reply", {"type": 1, "oid": aid,
+                                    "sort": 0 if sort == "time" else 2,
+                                    "ps": min(49, max(1, ps)), "pn": max(1, pn)})
+
+    def comment_thread(self, bvid: str, root, pn: int = 1, ps: int = 20):
+        """One comment's floor replies (楼中楼)."""
+        aid = self._bvid_to_aid(bvid)
+        return self._call("reply_reply", {"type": 1, "oid": aid, "root": root,
+                                          "ps": ps, "pn": pn})
+
+    def playurl(self, bvid: str, cid: int):
+        """Plain mp4 stream URL (WBI-signed). platform=pc + fnval=1 dodges DASH muxing —
+        measured by dsh-bili-whale (2026-10-14): qn=80 returns a 720p single-file durl;
+        html5+qn=32 silently degrades to 360p."""
+        return self._call("playurl", {"bvid": bvid, "cid": cid, "qn": 80, "fnval": 1,
+                                      "platform": "pc", "high_quality": 1})
 
     # -- writes (low-risk whitelist; the --yes gate lives in the cli layer) --
 

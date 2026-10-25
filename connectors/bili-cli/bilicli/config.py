@@ -39,4 +39,7 @@ ENDPOINTS = {
     "up_arc": ("/x/space/wbi/arc/search", True),       # UP uploads, mid/pn
     "up_info": ("/x/space/wbi/acc/info", True),        # UP info, mid
     "conclusion": ("/x/web-interface/view/conclusion/get", True),  # official AI video summary
+    "reply": ("/x/v2/reply", False),                  # video comments: type=1 oid=aid sort=2(hot)|0(time), anonymous-readable
+    "reply_reply": ("/x/v2/reply/reply", False),      # one comment's floor replies: root=rpid
+    "playurl": ("/x/player/wbi/playurl", True),       # stream URL: platform=pc+fnval=1 -> plain mp4 durl
 }

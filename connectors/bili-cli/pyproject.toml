@@ -9,6 +9,7 @@ dependencies = [
 
 [project.scripts]
 bili-cli = "bilicli.cli:main"
+bili-pet = "bilicli.pet_cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -29,7 +29,7 @@ def _need_yes(args, action: str) -> None:
 
 
 def cmd_login(args):
-    jar = auth.parse_cookie_string(args.file.read_text(encoding="utf-8")) if args.file \
+    jar = auth.parse_cookie_string(args.file.read()) if args.file \
         else auth.parse_cookie_string(args.cookie)
     auth.save_cookies(jar)
     api = BiliAPI()

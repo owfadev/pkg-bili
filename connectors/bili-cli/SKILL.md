@@ -43,7 +43,7 @@ Write: **whitelist only** (2026-10-06 owner decision) — `watchlater add/remove
 
 ## Output notes
 
-Timestamps are rendered `YYYY-MM-DD HH:MM` local time; durations are seconds (`duration_s`). `search --kind video` rows carry play/duration as raw strings. `subtitle` returns empty `subtitles: []` when the video has no CC tracks (or the uploader disabled them); player subtitles need the video's `cid` — the CLI resolves it from the page list.
+Timestamps are rendered `YYYY-MM-DD HH:MM` local time; durations are seconds (`duration_s`). `search --kind video` rows carry play/duration as raw strings. `subtitle` returns empty `tracks: []` when the video has no CC tracks (or the uploader disabled them); **anonymous sessions get an empty track list for EVERY video** (bilibili hides subtitles from logged-out callers, CC included — measured 2026-10-25), so the output carries `login: false` + a `note` in that case, meaning "re-login first", not "no subtitles". Player subtitles need the video's `cid` — the CLI resolves it from the page list.
 
 ## Known limits
 
@@ -52,7 +52,7 @@ Timestamps are rendered `YYYY-MM-DD HH:MM` local time; durations are seconds (`d
 - `history` only walks the recent window the API serves; deep history is not exposed
 - Search results are the first page only (page: 1); paginate via `raw` if ever needed
 - Audio download for transcription is the only materialization path: temp files under `wiki/tmp/`, never into `vault/` or the repo; user confirmation required
-- Watching pipeline (degradation chain, stop at first hit): CC subtitle (`subtitle`) -> AI subtitle track (`subtitle --ai`) -> official AI summary (`summary`) -> audio download into `wiki/tmp/` + local transcription (user-confirmed, delete after use). **Measured**: official summary and AI subtitle tracks require login (-101 anonymous); anonymous watching therefore relies on CC subtitle or transcription
+- Watching pipeline (degradation chain, stop at first hit): CC subtitle (`subtitle`) -> AI subtitle track (`subtitle --ai`) -> official AI summary (`summary`) -> audio download into `wiki/tmp/` + local transcription (user-confirmed, delete after use). **Measured** (2026-10-25): the player API hides the whole subtitle list (CC included) from anonymous sessions, and official summary / AI tracks need login — anonymous watching therefore degrades straight to transcription; `login: false` in `subtitle` output = cookie expired, re-login instead of degrading
 - Cookie = full account credential: treat like a password; page bodies contain personal data (history, favorites) — relay in conversation only, never commit CLI output into any repo
 
 ## Prohibitions

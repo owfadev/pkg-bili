@@ -164,10 +164,19 @@ class BiliAPI:
         cid = pages[min(page, len(pages)) - 1].get("cid")
         player = self._call("player", {"bvid": bvid, "cid": cid})
         subs = ((player.get("subtitle") or {}).get("subtitles")) or []
+        # session signal: login_mid is the viewer's mid when logged in, 0 anonymous (measured 2026-10-25)
+        login = bool(player.get("login_mid"))
         is_ai = lambda s: str(s.get("lan", "")).startswith("ai-")
         tracks = [{"lan": s.get("lan"), "ai": is_ai(s)} for s in subs]
         if not subs:
-            return {"cid": cid, "tracks": tracks, "text": None}
+            out = {"cid": cid, "tracks": tracks, "text": None, "login": login}
+            if not login:
+                # measured 2026-10-25 (BV15qQwB4EZ9): bilibili hides ALL subtitle tracks (CC included)
+                # from logged-out sessions — anonymous wbi/v2 and player/v2 alike return code 0 with
+                # subtitles [], while the page HTML embed shows the CC track with subtitle_url stripped ""
+                out["note"] = ("empty subtitle list while anonymous — bilibili hides subtitles from logged-out "
+                               "sessions; cookie likely expired, re-run bili-cli login and retry")
+            return out
         if ai:
             pick = next((s for s in subs if is_ai(s)), subs[0])
         else:
@@ -178,7 +187,7 @@ class BiliAPI:
         doc = self.s.get(url, timeout=15).json().get("body") or []
         return {
             "cid": cid, "lan": pick.get("lan"), "tracks": tracks, "lines": len(doc),
-            "text": "\n".join(line.get("content", "") for line in doc),
+            "login": login, "text": "\n".join(line.get("content", "") for line in doc),
         }
 
     def summary(self, bvid: str):

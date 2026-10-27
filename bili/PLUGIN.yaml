@@ -1,5 +1,5 @@
 id: bili
-version: 0.4
+version: 0.5
 depends:
   - domain
   - wiki
@@ -9,7 +9,7 @@ depends:
   - calendar
   - notes
   - cron
-updated: 2026-10-06
+updated: 2026-10-26
 attachment:
   - "wiki/bili/ — bilibili domain territory (domain root: account identity page + digest page; up/ UP archives emergence-based, never pre-created)"
   - "wiki/bili/bili.md — domain declaration page doubling as account identity page (type: bili; bili block mapping mid/nickname/TTL override + watch block mapping follow-source list, **create when absent** — data source bili-cli me)"
@@ -19,7 +19,7 @@ attachment:
 fields:
   bili: "block mapping — account (owning account = the domain identity page, omittable in single-account deployments) / kind (page form: account identity page / up UP archive / video video archive, open vocabulary) / mid (up archive identity proof: the Bilibili numeric uid one-to-one with the page) / bvid (video archive identity proof, one-to-one with the page) / title (video archive page title) / url (space or video deep link)"
   watch: "block mapping (domain identity page) — UP name → mid + one-sentence follow reason; the tracked-source list, fresh pulls traverse this table"
-inject: "bilibili content domain wiki/bili/ (connector bili-cli — web-cookie login, command surface and red lines in its skill): identity page bili.md (mid/nickname/TTL + watch list, created when absent); query-and-answer, no default projection — retrieval from fresh pulls, high-value conclusions emerge into notes with backlinks; emergence archives — up/ (repeated hits or explicit request), video/ (explicit request or repeated hits; ai summary overwritable + human review append-only); digest inbox.md (regenerable, short TTL); low-risk write whitelist (watchlater/favorites add-remove, like) each needs the user's explicit verb + CLI --yes double gate — writes outside never offered; derivations out-only (bridges); red lines: cookies stay local, personal watch data never enters the framework repo; trust ceiling machine-confirmed, agent = synchronizer"
+inject: "bilibili content domain wiki/bili/ (connector bili-cli, web-cookie login; surface and red lines in its skill): identity bili.md (mid/TTL + watch list, create-when-absent); query-and-answer, no default projection — fresh pulls, high-value conclusions emerge into notes with backlinks; emergence archives up/ (repeated hits or request) video/ (request or repeated hits; ai summary overwritable + review append-only); digest inbox.md (regenerable, short TTL); low-risk write whitelist (watchlater/favorites add-remove, like) needs explicit user verb + --yes double gate — writes outside never offered; derivations out-only; red lines: cookies local, personal watch data never enters the framework repo; trust ceiling machine-confirmed, agent = synchronizer; optional member bili-pet = raised-risk autonomous agent (own contract/skill, standing consent)"
 usage:
   - Connection discipline: credentials imported via bili-cli login (cookies live only in ~/.bili-cli/, never echoed, never committed); entering the domain reads wiki/bili/bili.md first (create when absent: bili-cli me pulls fresh and builds the page) — the tracking scope follows the watch block mapping, direct human edits are legal (add/remove sources)
   - Digest refresh (mechanical): traverse the watch list pulling each UP's latest uploads (bili-cli up --arcs) → compare against the archive/digest watermarks → distill and rewrite inbox.md (new-upload lines + personal-data highlight lines) → log line (type other); stale handled the same way (the agent is the synchronizer); the space endpoint easily 412s on rapid consecutive calls, stay serial and restrained

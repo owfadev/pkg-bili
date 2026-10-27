@@ -39,4 +39,13 @@ ENDPOINTS = {
     "up_arc": ("/x/space/wbi/arc/search", True),       # UP uploads, mid/pn
     "up_info": ("/x/space/wbi/acc/info", True),        # UP info, mid
     "conclusion": ("/x/web-interface/view/conclusion/get", True),  # official AI video summary
+    "reply": ("/x/v2/reply", False),                  # video comments: type=1 oid=aid sort=2(hot)|0(time), anonymous-readable
+    "reply_reply": ("/x/v2/reply/reply", False),      # one comment's floor replies: root=rpid
+    "reply_add": ("/x/v2/reply/add", True),           # POST comment/reply (bili-pet surface; WBI sig rides the query)
+    "relation": ("/x/relation", False),               # relation with fid (mutual-follow check for DM)
+    "dm_send": ("/x/im/dm/sendMsg", False),           # POST web DM (bili-pet surface)
+    "popular": ("/x/web-interface/popular", False),   # feed source: popular videos
+    "rank": ("/x/web-interface/ranking/v2", False),   # feed source: ranking (rid=0 all)
+    "dyn_feed": ("/x/polymer/web-dynamic/v1/feed/all", False),  # feed source: followees' dynamic videos
+    "playurl": ("/x/player/wbi/playurl", True),       # stream URL: platform=pc+fnval=1 -> plain mp4 durl
 }

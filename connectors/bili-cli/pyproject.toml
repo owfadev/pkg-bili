@@ -1,6 +1,6 @@
 [project]
 name = "bilicli"
-version = "0.2.0"
+version = "0.3.0"
 description = "bilibili (bilibili.com) read-mostly CLI connector with web-cookie auth"
 requires-python = ">=3.10"
 dependencies = [
@@ -9,6 +9,7 @@ dependencies = [
 
 [project.scripts]
 bili-cli = "bilicli.cli:main"
+bili-pet = "bilicli.pet_cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

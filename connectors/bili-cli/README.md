@@ -7,6 +7,7 @@ Connector for the wiki bilibili domain (web-cookie login state, homegrown lightw
 - **Read-mostly + low-risk write whitelist** (2026-10-06 owner decision): whitelist = watch-later add/remove, favorites add/remove, like; all three require a double gate — an explicit user verb (agent layer) + `--yes` (CLI layer); write operations outside the whitelist (coin/comment/share/follow/dm/danmaku) are never provided, and raw does not carry them either
 - Credentials are browser cookies (SESSDATA / bili_jct = csrf): stored only on the local machine in `~/.bili-cli/cookies.json` (0600), never in any repo, never on screen, never echoed in full
 - Personal data (watch history / favorites / watch-later) is instance data: relayed within the session only, never committed to any repo
+- **Request protection (0.3.0, ported from [dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale), MIT)**: every api.bilibili.com GET runs under a guard — 24h metadata cache, 300 ms in-process throttle, exponential 412/-412 breaker (5/10/20/30 min, stale cache serves where safe); on GuardBlocked stop and report, never endpoint-hop. Danmaku XML serves a sample (comparative counts only). Debrief materials land in `--out`; point instance-side runs at the instance tmp zone
 
 ## Usage
 
@@ -20,6 +21,13 @@ bili-cli search <q> [--kind video|up] [--limit N]
 bili-cli video <bvid>                          # detail: pages/stats/description
 bili-cli subtitle <bvid> [--page N] [--ai]     # subtitle text (CC track by default, --ai forces the AI track)
 bili-cli summary <bvid>                          # official AI video summary (needs login; if none has_summary=false)
+bili-cli comments <bvid> [--ps N] [--pn N] [--sort hot|time]   # comments (anonymous-readable)
+bili-cli thread <bvid> --root <rpid>            # one comment's floor replies (楼中楼)
+bili-cli debrief <bvid> [--grid 3x3] [--tile 720] [--no-frames] [--substrip N] [--out DIR]
+                                               # six-channel comprehension materials: meta/cover/subtitle/
+                                               # danmaku hot zones (spam-filtered, subtitle-aligned)/
+                                               # hot comments/frame grid (ffmpeg; scene-snapped sampling)
+bili-cli traffic                                # request-protection state (breaker + cache)
 bili-cli up <mid> [--arcs --limit N]           # UP info (+ recent uploads)
 # writes (whitelist, double gate):
 bili-cli watchlater add|remove <bvid> --yes
@@ -48,5 +56,6 @@ Output is always single-line JSON; timestamps are `YYYY-MM-DD HH:MM` local timez
 
 ## Changelog
 
+- 0.3.0 2026-10-26: comprehension batch (bili-pet prework) — comments / thread (楼中楼) reads; debrief six-channel materials pipeline (cover, timed subtitles, danmaku hot zones with spam-wave filtering + subtitle alignment, hot comments, scene-snapped frame grids, hard-subtitle band collage; ported from dsh-bili-whale debrief.mjs/bili-watch.mjs, MIT); traffic request protection (cache/breaker/throttle, ported from its bili-api.mjs); unittest suite (31 cases, no network, no ffmpeg)
 - 0.2.0 2026-10-06: video-ingestion batch (user's four-scenario walkthrough) — subtitle --ai (AI track), summary (official AI summary, measured to need login), fav move (cross-folder move); watching degradation chain disclosed
 - 0.1.0 2026-10-06: initial setup — seven design decisions converged through user Q&A (feature surface: personal data + queries + tracking; web-cookie auth; three-item low-risk write whitelist; homegrown light implementation; pull-now, cron later; query-and-answer + emergent archives; full connector + domain set)

@@ -175,6 +175,57 @@ def cmd_raw(args):
     _emit(BiliAPI().raw(args.url, post=args.post))
 
 
+def _comment_row(r: dict, tag: str | None = None) -> dict:
+    import re
+    return {
+        "rpid": r.get("rpid"), "user": (r.get("member") or {}).get("uname"),
+        "mid": (r.get("member") or {}).get("mid"), "like": r.get("like"),
+        "replies": r.get("rcount"), "time": _ts(r.get("ctime")),
+        "text": re.sub(r"\s+", " ", (r.get("content") or {}).get("message", ""))[:200],
+        **({"tag": tag} if tag else {}),
+    }
+
+
+def cmd_comments(args):
+    api = BiliAPI()
+    data = api.comments(args.bvid, ps=args.ps, pn=args.pn, sort=args.sort) or {}
+    items = []
+    if isinstance(data.get("top"), list):
+        items += [_comment_row(r, "top") for r in data["top"]]
+    if (data.get("upper") or {}).get("top"):
+        items.append(_comment_row(data["upper"]["top"], "upper-top"))
+    items += [_comment_row(r) for r in (data.get("replies") or [])]
+    _emit({
+        "bvid": args.bvid, "total": (data.get("page") or {}).get("count"),
+        "sort": args.sort, "page": args.pn, "count": len(items), "items": items,
+    })
+
+
+def cmd_thread(args):
+    api = BiliAPI()
+    data = api.comment_thread(args.bvid, args.root, pn=args.pn) or {}
+    root = _comment_row(data.get("root") or {})
+    replies = [_comment_row(r) for r in (data.get("replies") or [])]
+    _emit({"bvid": args.bvid, "root": root, "page": args.pn,
+           "total": (data.get("page") or {}).get("count"), "replies": replies})
+
+
+def cmd_debrief(args):
+    from . import debrief
+    api = BiliAPI()
+    manifest = debrief.run_debrief(
+        api, args.bvid, grid=args.grid, tile=args.tile, top=args.top,
+        bucket_s=args.bucket, n_comments=args.comments,
+        want_frames=not args.no_frames, uniform=args.uniform,
+        substrip_every=args.substrip, out_dir=args.out)
+    _emit(manifest)
+
+
+def cmd_traffic(args):
+    from . import traffic
+    _emit(traffic.api_state())
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bili-cli",
                                 description="bilibili read-mostly connector (web cookie; write commands require --yes)")
@@ -245,6 +296,36 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("url")
     s.add_argument("--post", action="store_true")
     s.set_defaults(fn=cmd_raw)
+
+    s = sub.add_parser("comments", help="video comments (hot/new sort, anonymous-readable)")
+    s.add_argument("bvid")
+    s.add_argument("--ps", type=int, default=20)
+    s.add_argument("--pn", type=int, default=1)
+    s.add_argument("--sort", choices=["hot", "time"], default="hot")
+    s.set_defaults(fn=cmd_comments)
+
+    s = sub.add_parser("thread", help="one comment's floor replies (楼中楼)")
+    s.add_argument("bvid")
+    s.add_argument("--root", required=True, help="rpid of the comment to expand")
+    s.add_argument("--pn", type=int, default=1)
+    s.set_defaults(fn=cmd_thread)
+
+    s = sub.add_parser("debrief", help="six-channel comprehension materials: meta/cover/subtitle/danmaku hot zones/hot comments/frame grid (ffmpeg optional)")
+    s.add_argument("bvid")
+    s.add_argument("--grid", default="3x3", help="frame grid layout, cols x rows")
+    s.add_argument("--tile", type=int, default=720, help="grid cell width px")
+    s.add_argument("--top", type=int, default=5, help="danmaku peak zones to report")
+    s.add_argument("--bucket", type=int, default=30, help="danmaku bucket size (seconds)")
+    s.add_argument("--comments", type=int, default=8, help="hot comments to include")
+    s.add_argument("--no-frames", action="store_true", help="skip the frame channel (no ffmpeg needed)")
+    s.add_argument("--uniform", action="store_true", help="force uniform frame sampling (skip scene snap)")
+    s.add_argument("--substrip", type=int, default=0, metavar="N",
+                   help="also build a hard-subtitle band collage, one row every N seconds")
+    s.add_argument("--out", default=None, help="materials directory (default: auto temp dir)")
+    s.set_defaults(fn=cmd_debrief)
+
+    s = sub.add_parser("traffic", help="request-protection state (risk-control breaker + cache)")
+    s.set_defaults(fn=cmd_traffic)
 
     return p
 

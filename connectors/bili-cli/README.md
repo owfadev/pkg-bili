@@ -4,7 +4,7 @@ Connector for the wiki bilibili domain (web-cookie login state, homegrown lightw
 
 ## Discipline
 
-- **Read-mostly + low-risk write whitelist** (2026-10-06 owner decision): whitelist = watch-later add/remove, favorites add/remove, like; all three require a double gate — an explicit user verb (agent layer) + `--yes` (CLI layer); write operations outside the whitelist (coin/comment/share/follow/dm/danmaku) are never provided, and raw does not carry them either
+- **Read-mostly + write whitelist** (2026-10-06 owner decision): three low-risk items — watch-later add/remove, favorites add/remove, like; plus one restricted social write, `dm` (2026-10-29): mutual follow by default, 5 per rolling 24h, 1 per recipient/24h, 60 s gap, ≤450 chars, never to self, every attempt ledgered. All writes take a double gate — an explicit user verb (agent layer) + `--yes` (CLI layer); `dm` also wants `--dry` first. Everything else (coin/comment/share/follow/danmaku) is never provided, and raw does not carry writes
 - Credentials are browser cookies (SESSDATA / bili_jct = csrf): acquired by QR scan (`login --qrcode`, default) or pasted Cookie header (fallback); stored only on the local machine in `~/.bili-cli/cookies.json` (0600), never in any repo, never on screen, never echoed in full; rotation is persisted automatically
 - Personal data (watch history / favorites / watch-later) is instance data: relayed within the session only, never committed to any repo
 - **Request protection (0.3.0, ported from [dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale), MIT)**: every api.bilibili.com GET runs under a guard — 24h metadata cache, 300 ms in-process throttle, exponential 412/-412 breaker (5/10/20/30 min, stale cache serves where safe); on GuardBlocked stop and report, never endpoint-hop. Danmaku XML serves a sample (comparative counts only). Debrief materials land in `--out`; point instance-side runs at the instance tmp zone
@@ -40,6 +40,10 @@ bili-cli watchlater add|remove <bvid> --yes
 bili-cli fav add|remove <bvid> --fid <id> --yes
 bili-cli fav move <bvid> --from <id> --to <id> --yes   # cross-folder move (a whitelisted combination)
 bili-cli like <bvid> --yes
+bili-cli dm --to <mid|@昵称> --msg "..." --dry   # preview: guards + exact payload, nothing sent
+bili-cli dm --to <mid|@昵称> --msg "..." --yes   # send (caps below; every attempt ledgered)
+bili-cli dm --status                          # today's budget + last entries
+                                              #   --allow-non-mutual: send without mutual follow (recorded as forced)
 bili-cli raw <url> [--post]                    # passthrough (probing/reconciliation)
 ```
 
@@ -69,6 +73,23 @@ line — stable enough to parse:
 {"event": "success", "mid": "503383791"}
 ```
 
+## Restricted DM
+
+`dm` is the only social write the connector offers, and the walls are code:
+
+| Guard | Value |
+|---|---|
+| mutual follow | required by default (`--allow-non-mutual` overrides and is recorded as `forced`) |
+| budget | 5 messages / rolling 24 h |
+| per recipient | 1 message / 24 h |
+| pacing | 60 s between any two sends |
+| length | 1–450 chars, never to yourself |
+| audit | every attempt (sent or refused) → `~/.bili-cli/dm-ledger.json` (0600), preview capped at 80 chars |
+
+Workflow: `--dry` prints the resolved recipient, relation attributes and the exact text; `--yes` sends.
+A refusal is an outcome — the CLI prints it and exits 1; do not retry, do not route around it through `raw`.
+`dm --status` is safe to call anytime and shows the remaining budget.
+
 ## Implementation notes
 
 - WBI signing: nav hands out the img/sub keys -> rearrange via the 64-entry table, take the first 32 -> add wts to params and sort -> md5 -> `w_rid`; the key is cached in-process
@@ -87,6 +108,7 @@ line — stable enough to parse:
 
 ## Changelog
 
+- 0.5.0 2026-10-29: restricted `dm` — recipient by mid or exact @nickname, mutual-follow default with an audited override, 5/24h + 1-per-recipient/24h + 60s gap + 450-char caps, `--dry` preview, `--status` budget view, append-only ledger (0600), 15 new tests; contract updated (write whitelist gains its fourth item, renamed from "low-risk" since admission now rests on caps + audit)
 - 0.4.0 2026-10-29: QR login — `login --qrcode` (passport generate/poll, transition-only progress, one automatic regeneration on expiry, `nav` verification before success), dual rendering (dependency-free PNG writer + TTY ASCII, optional `qr` extra), `--json-events` NDJSON contract, scriptable exit codes (0/1/2/130), consumed QR deleted from disk, `login` with no args = status, `logout`, and cookie rotation persistence (`persist_session`, atomic 0600 writes) so a live session keeps sliding instead of hard-expiring; 25 new tests (flow driven by a scripted fake session)
 - 0.3.0 2026-10-26: comprehension batch (bili-pet prework) — comments / thread (楼中楼) reads; debrief six-channel materials pipeline (cover, timed subtitles, danmaku hot zones with spam-wave filtering + subtitle alignment, hot comments, scene-snapped frame grids, hard-subtitle band collage; ported from dsh-bili-whale debrief.mjs/bili-watch.mjs, MIT); traffic request protection (cache/breaker/throttle, ported from its bili-api.mjs); unittest suite (31 cases, no network, no ffmpeg)
 - 0.2.0 2026-10-06: video-ingestion batch (user's four-scenario walkthrough) — subtitle --ai (AI track), summary (official AI summary, measured to need login), fav move (cross-folder move); watching degradation chain disclosed

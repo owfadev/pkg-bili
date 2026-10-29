@@ -1,6 +1,6 @@
 [project]
 name = "bilicli"
-version = "0.4.0"
+version = "0.5.0"
 description = "bilibili (bilibili.com) read-mostly CLI connector with web-cookie auth"
 requires-python = ">=3.10"
 dependencies = [

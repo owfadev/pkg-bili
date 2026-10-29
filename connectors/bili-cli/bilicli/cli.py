@@ -28,14 +28,57 @@ def _need_yes(args, action: str) -> None:
         raise SystemExit(2)
 
 
-def cmd_login(args):
-    jar = auth.parse_cookie_string(args.file.read()) if args.file \
-        else auth.parse_cookie_string(args.cookie)
-    auth.save_cookies(jar)
+def _report_login() -> dict:
+    """Verify the stored credential against nav and report who we are."""
     api = BiliAPI()
     me = api.me() or {}
-    _emit({"ok": True, "mid": me.get("mid"), "uname": me.get("uname"),
-           "is_login": me.get("isLogin"), "stored": str(auth.COOKIE_FILE)})
+    return {"ok": bool(me.get("isLogin")), "mid": me.get("mid"), "uname": me.get("uname"),
+            "is_login": me.get("isLogin"), "stored": str(auth.COOKIE_FILE)}
+
+
+def cmd_login(args):
+    if getattr(args, "qrcode", False):
+        from . import qrlogin
+        try:
+            jar = qrlogin.login(
+                timeout_s=args.timeout,
+                png_path=None if args.no_png else (args.png or qrlogin.QR_PNG),
+                ascii_qr=args.ascii,
+                keep_qr=args.keep_qr,
+                json_events=args.json_events,
+            )
+        except KeyboardInterrupt:
+            print("[login] 已取消", file=sys.stderr)
+            raise SystemExit(130)
+        auth.save_cookies(jar)
+        out = _report_login()
+        if not out.get("ok"):
+            print("[login] 凭证已写入，但 nav 校验未通过（风控或已失效）——重试 --qrcode", file=sys.stderr)
+            raise SystemExit(1)
+        _emit(out)
+        return
+    if args.file or args.cookie:
+        jar = auth.parse_cookie_string(args.file.read()) if args.file \
+            else auth.parse_cookie_string(args.cookie)
+        auth.save_cookies(jar)
+        _emit(_report_login())
+        return
+    # no import requested: report state instead of guessing
+    try:
+        auth.load_cookies()
+    except SystemExit:
+        _emit({"ok": False, "logged_in": False,
+               "hint": "bili-cli login --qrcode  (scan with the bilibili app)"})
+        return
+    out = _report_login()
+    out["logged_in"] = out.pop("is_login")
+    if not out["logged_in"]:
+        out["hint"] = "bili-cli login --qrcode  (scan with the bilibili app)"
+    _emit(out)
+
+
+def cmd_logout(args):
+    _emit({"ok": True, "removed": auth.clear(), "stored": str(auth.COOKIE_FILE)})
 
 
 def cmd_me(args):
@@ -232,11 +275,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("login", help="import browser cookies (SESSDATA/bili_jct)")
-    s.add_argument("--cookie", help='cookie string, e.g. "SESSDATA=..; bili_jct=..; buvid3=.."')
+    s = sub.add_parser("login", help="QR scan (default path) or browser-cookie import; no args = status")
+    s.add_argument("--qrcode", action="store_true",
+                   help="scan a QR with the bilibili app (writes a PNG to ~/.bili-cli/login-qr.png)")
+    s.add_argument("--timeout", type=int, default=180, help="QR wait timeout in seconds (default 180)")
+    s.add_argument("--png", help="QR PNG path (default ~/.bili-cli/login-qr.png)")
+    s.add_argument("--no-png", action="store_true", help="do not write a PNG (terminal/ASCII only)")
+    s.add_argument("--keep-qr", action="store_true", help="keep the QR PNG after a successful login")
+    s.add_argument("--ascii", dest="ascii", action="store_true", default=None,
+                   help="force terminal QR rendering (default: only when stderr is a TTY)")
+    s.add_argument("--no-ascii", dest="ascii", action="store_false", help="never render the QR in the terminal")
+    s.add_argument("--json-events", action="store_true",
+                   help="emit NDJSON progress events on stderr (for agent layers)")
+    s.add_argument("--cookie", help='instead of QR: cookie string, e.g. "SESSDATA=..; bili_jct=..; buvid3=.."')
     s.add_argument("--file", type=argparse.FileType("r", encoding="utf-8"),
                    help="or read a same-format string from a file")
     s.set_defaults(fn=cmd_login)
+
+    s = sub.add_parser("logout", help="delete the stored credential (~/.bili-cli/cookies.json)")
+    s.set_defaults(fn=cmd_logout)
 
     s = sub.add_parser("me", help="my info (mid/name/level/VIP)")
     s.set_defaults(fn=cmd_me)

@@ -15,9 +15,11 @@ Write: **whitelist only** (2026-10-06 owner decision) — `watchlater add/remove
 
 ## Prerequisites (install / auth)
 
-1. Install (if missing): `cd connectors/bili-cli` and install editable with the host's Python package manager (deps: requests only; e.g. `python -m venv .venv` + the venv's pip on dev desktops, `uv venv .venv && uv pip install -e .` on PEP 668 hosts — instance-level environment declarations in AGENTS.md take precedence; may also run from another venv with requests available via `PYTHONPATH=.`)
-2. Login: from a logged-in browser DevTools → Network → any api.bilibili.com request → copy the Cookie header value, then `bili-cli login --cookie "SESSDATA=...; bili_jct=...; buvid3=..."`. Stored at `~/.bili-cli/cookies.json` (0600) — credentials never enter any repo, never echoed in full.
-3. Self-check: `bili-cli me` returns mid/uname when the cookie is alive; cookie expiry shows as API code -101 → user re-exports a fresh cookie.
+1. Install (if missing): `cd connectors/bili-cli` and install editable with the host's Python package manager (deps: requests only, plus the optional `qr` extra for QR rendering; e.g. `uv venv .venv && uv pip install -e ".[qr]"` on PEP 668 hosts — instance-level environment declarations in AGENTS.md take precedence; may also run from another venv with requests available via `PYTHONPATH=.`)
+2. Login — **QR first**: `bili-cli login --qrcode` generates `~/.bili-cli/login-qr.png` and polls. Show that PNG to the user (read_image / send it) and let them scan with the bilibili app + confirm; the command ends by verifying `nav` and printing mid/uname. QR lives ~3 min and the CLI already regenerates it once on expiry. Exit codes: 0 ok · 1 API failure · 2 expired/timeout (rerun) · 130 cancelled. Run it as a background job, wait for the PNG, then hand the path to the user; add `--json-events` when a machine-readable progress trail is more useful than prose. Without the `qr` extra the command still polls and prints the payload URL instead of a PNG.
+3. Fallback login (no phone at hand, borrowed profile): copy the browser Cookie header from DevTools → Network → any api.bilibili.com request → `bili-cli login --cookie "SESSDATA=...; bili_jct=..."` (or `--file`). Stored at `~/.bili-cli/cookies.json` (0600) — credentials never enter any repo, never echoed in full.
+4. Self-check: `bili-cli login` (no args) reports `logged_in` + mid/uname and hints when expired; `bili-cli me` is the raw API check. Cookie expiry shows as API code -101 / anonymous `subtitle` output → run `login --qrcode` again.
+5. Longevity: rotated `Set-Cookie` values are persisted after every command, so a working login keeps sliding forward; `bili-cli logout` deletes the stored credential.
 
 ## Steps
 

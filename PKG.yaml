@@ -12,7 +12,7 @@ uninstall:
   credentials: ["bili-cli cookies（本机，红线：不入库）"]
   bridges: []
   processes: []
-disclosure: "Accesses bilibili.com via bili-cli (web-cookie login); processes watch history, favorites and video content (privacy: medium); cookies only on this machine; watch data never enters any git repository; low-risk writes need explicit user verbs + CLI --yes. OPTIONAL member bili-pet (raised risk): an autonomous agent that comments/DMs under standing consent — installing it pre-authorizes code-capped social writes (shares <=3/day with silence decay, 7-day per-video, 30-day per-person, DM owner-only + mutual + one-recipient/day), each utterance ledgered and reported; revoke by --without bili-pet / uninstall. Ported from dsh-bili-whale (MIT)."
+disclosure: "Accesses bilibili.com via bili-cli (web-cookie login); processes watch history, favorites and video content (privacy: medium); cookies only on this machine; watch data never enters any git repository; low-risk writes need explicit user verbs + CLI --yes; one restricted social write (dm) is walled by code — mutual follow by default, 5/day, 1 per recipient/24h, 450 chars, every attempt ledgered locally. OPTIONAL member bili-pet (raised risk): an autonomous agent that comments/DMs under standing consent — installing it pre-authorizes code-capped social writes (shares <=3/day with silence decay, 7-day per-video, 30-day per-person, DM owner-only + mutual + one-recipient/day), each utterance ledgered and reported; revoke by --without bili-pet / uninstall. Ported from dsh-bili-whale (MIT)."
 menu:
-  bili: bilibili domain — query-and-answer + emergence archives (writes need explicit verbs + --yes)
+  bili: bilibili domain — query-and-answer + emergence archives (writes need explicit verbs + --yes; restricted dm)
   bili-pet: autonomous bilibili agent — OPTIONAL, raised risk (quota'd social writes under standing consent, diaries + persona wiki-side, wake via cron)

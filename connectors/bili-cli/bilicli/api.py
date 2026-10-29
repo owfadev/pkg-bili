@@ -4,6 +4,7 @@ Read-mostly; write methods are limited to the low-risk whitelist the connector d
 (watch-later/favorites/like); the caller (cli.py) owns the --yes gate and csrf injection.
 """
 
+import atexit
 import time
 from hashlib import md5
 from urllib.parse import urlencode
@@ -39,6 +40,10 @@ class BiliAPI:
                 self.s.cookies.update(jar)
                 self.csrf = jar.get("bili_jct", "")
                 self.authed = True
+                # bilibili rotates SESSDATA via Set-Cookie; write the rotation back so the
+                # login slides forward instead of hard-expiring (and picks up side effects
+                # like a server-side logout on the next run)
+                atexit.register(auth.persist_session, self.s)
         # buvid3 is the risk-control baseline; anonymous calls (WBI endpoints like search) need it too
         self._ensure_buvid()
         self._wbi_key = None
@@ -212,7 +217,8 @@ class BiliAPI:
         # measured 2026-10-25 (BV1wvJB6aEp5): model_result is an OBJECT now —
         # {result_type, summary, outline[], subtitle[]} — while older payloads carried a plain string,
         # and the outline can live either under data.outline or inside model_result. Normalize both
-        # shapes before reading: slicing a dict as a string raised KeyError here.
+        # shapes before reading: a dict sliced as a string used to raise TypeError here.
+        # (Re-applied 2026-10-26: the bili v0.3.0 plugin reinstall clobbered this hot fix.)
         mr = data.get("model_result")
         text = mr if isinstance(mr, str) else ((mr or {}).get("summary") or "")
         outline = data.get("outline") or (mr.get("outline") if isinstance(mr, dict) else None) or []
